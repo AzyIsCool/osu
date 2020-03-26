@@ -12,14 +12,20 @@ using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Primitives;
 using osu.Framework.Allocation;
 using System.Collections.Generic;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics.Batches;
 using osu.Framework.Graphics.OpenGL.Vertices;
 using osu.Framework.Lists;
+using osu.Game.Beatmaps;
+using osu.Game.Beatmaps.ControlPoints;
+using osu.Game.Graphics.Containers;
 
 namespace osu.Game.Graphics.Backgrounds
 {
     public class Triangles : Drawable
     {
+        private readonly IBindable<WorkingBeatmap> beatmap = new Bindable<WorkingBeatmap>();
+
         private const float triangle_size = 100;
         private const float base_velocity = 50;
 
@@ -97,9 +103,10 @@ namespace osu.Game.Graphics.Backgrounds
         }
 
         [BackgroundDependencyLoader]
-        private void load(ShaderManager shaders)
+        private void load(ShaderManager shaders, IBindable<WorkingBeatmap> beatmap)
         {
             shader = shaders.Load(VertexShaderDescriptor.TEXTURE_2, FragmentShaderDescriptor.TEXTURE_ROUNDED);
+            this.beatmap.BindTo(beatmap);
         }
 
         protected override void LoadComplete()
@@ -139,11 +146,29 @@ namespace osu.Game.Graphics.Backgrounds
                 ? MathF.Pow(DrawColourInfo.Colour.AverageColour.Linear.A, 3)
                 : 1;
 
-            float elapsedSeconds = (float)Time.Elapsed / 1000;
+            var track = beatmap.Value.TrackLoaded && beatmap.Value.BeatmapLoaded ? beatmap.Value.Track : null;
+            TimingControlPoint timingPoint = null;
+
+            if (track != null && beatmap.Value.Beatmap != null && track.IsRunning && track.Length > 0)
+            {
+                timingPoint = beatmap.Value.Beatmap.ControlPointInfo.TimingPointAt(track.CurrentTime);
+            }
+
+            timingPoint ??= new TimingControlPoint
+            {
+                BeatLength = BeatSyncedContainer.DEFAULT_BEAT_LENGTH,
+            };
+
+            var effect = beatmap.Value.Beatmap?.ControlPointInfo.EffectPointAt(track?.CurrentTime ?? Time.Current);
+
+            var velocity = (track?.IsLoaded ?? false) && track.IsRunning ? track.CurrentAmplitudes.Average : Velocity;
+            var velocityMultiplier = (track?.IsLoaded ?? false) && track.IsRunning ? (float)timingPoint.BPM / (effect?.KiaiMode ?? false ? 0.5f : 1f) : base_velocity;
+
             // Since position is relative, the velocity needs to scale inversely with DrawHeight.
             // Since we will later multiply by the scale of individual triangles we normalize by
             // dividing by triangleScale.
-            float movedDistance = -elapsedSeconds * Velocity * base_velocity / (DrawHeight * triangleScale);
+            float elapsedSeconds = (float)Time.Elapsed / 1000;
+            float movedDistance = -elapsedSeconds * velocity * velocityMultiplier / (DrawHeight * triangleScale);
 
             for (int i = 0; i < parts.Count; i++)
             {

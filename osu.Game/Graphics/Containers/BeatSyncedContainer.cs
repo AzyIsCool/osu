@@ -46,7 +46,7 @@ namespace osu.Game.Graphics.Containers
         /// <summary>
         /// Default length of a beat in milliseconds. Used whenever there is no beatmap or track playing.
         /// </summary>
-        private const double default_beat_length = 60000.0 / 60.0;
+        public const double DEFAULT_BEAT_LENGTH = 60000.0 / 60.0;
 
         private TimingControlPoint defaultTiming;
         private EffectControlPoint defaultEffect;
@@ -120,7 +120,7 @@ namespace osu.Game.Graphics.Containers
 
             defaultTiming = new TimingControlPoint
             {
-                BeatLength = default_beat_length,
+                BeatLength = DEFAULT_BEAT_LENGTH,
             };
 
             defaultEffect = new EffectControlPoint
